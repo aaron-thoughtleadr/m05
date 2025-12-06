@@ -39,6 +39,27 @@ m05/
 ├── app.py               # Flask backend
 ├── static/              # Frontend assets
 ├── templates/           # HTML templates
-└── requirements.txt     # Python dependencies
+├── requirements.txt     # Python dependencies
+└── deploy.sh            # Quick deployment script
 ```
+
+## Updating the Live App
+
+After making changes to your files:
+
+1. **Option 1: Use the deploy script** (easiest)
+   ```bash
+   ./deploy.sh "Your commit message"
+   ```
+
+2. **Option 2: Manual git commands**
+   ```bash
+   git add .
+   git commit -m "Your commit message"
+   git push origin main
+   ```
+
+3. **Railway will automatically redeploy** when it detects the push to GitHub (usually takes 1-2 minutes)
+
+**Note:** Make sure Railway is connected to your GitHub repository and has auto-deploy enabled (this is the default).
 

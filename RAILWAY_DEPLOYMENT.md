@@ -75,10 +75,11 @@ git push -u origin main
 1. **In Railway dashboard**, click **"New Project"**
 2. **Select "Deploy from GitHub repo"**
 3. **Authorize Railway** to access your GitHub repositories (if first time)
-4. **Select your repository** (`m05-exam-practice` or whatever you named it)
+4. **Select your repository** (`m05` or whatever you named it)
 5. Railway will automatically:
    - Detect it's a Python/Flask app
    - Start building and deploying
+   - **Auto-deploy is ENABLED by default** - any push to your main branch will trigger a redeploy
 
 ---
 
@@ -218,6 +219,34 @@ Whenever you make changes:
    git push
    ```
 3. **Railway automatically redeploys** your app
+
+---
+
+## How to Enable/Check Auto-Deploy
+
+**Auto-deploy is ENABLED by default** when you connect a GitHub repository. Here's how to verify:
+
+1. **Go to your Railway project dashboard**
+2. **Click on your service** (the deployed app)
+3. **Go to the "Settings" tab**
+4. **Scroll down to "Deployments" section**
+5. **Look for "Auto Deploy"** - it should show:
+   - ✅ **"Auto Deploy: Enabled"** (default)
+   - Branch: `main` (or your default branch)
+
+### To Enable Auto-Deploy (if disabled):
+
+1. **In Settings → Deployments**
+2. **Toggle "Auto Deploy" to ON**
+3. **Select the branch** (usually `main`)
+4. **Save changes**
+
+### To Disable Auto-Deploy (if you want manual control):
+
+1. **Toggle "Auto Deploy" to OFF**
+2. **You'll need to manually trigger deployments** from the "Deployments" tab
+
+**Note:** With auto-deploy enabled, every push to your main branch will automatically trigger a new deployment. This is recommended for most use cases.
 
 ---
 

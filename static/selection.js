@@ -40,9 +40,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
     
-    // Handle reload button
-    document.getElementById('reloadBtn').addEventListener('click', reloadQuestions);
-    
     // Handle start quiz button
     document.getElementById('startQuizBtn').addEventListener('click', () => {
         if (selectedOptions) {
@@ -65,7 +62,7 @@ async function loadAvailableYears() {
         yearButtons.innerHTML = '';
         
         if (years.length === 0) {
-            yearButtons.innerHTML = '<p>No exam years found. Please reload questions.</p>';
+            yearButtons.innerHTML = '<p>No exam years found. Please ensure exam papers are uploaded.</p>';
             return;
         }
         
@@ -201,7 +198,7 @@ async function loadLearningObjectives() {
         loButtons.innerHTML = '';
         
         if (objectives.length === 0) {
-            loButtons.innerHTML = '<p>No learning objectives found. Please reload questions.</p>';
+            loButtons.innerHTML = '<p>No learning objectives found. Please ensure exam papers are uploaded.</p>';
             return;
         }
         
@@ -244,33 +241,6 @@ async function loadMultipleChoiceCount() {
         });
     } catch (error) {
         console.error('Error loading multiple choice count:', error);
-    }
-}
-
-async function reloadQuestions() {
-    try {
-        const btn = document.getElementById('reloadBtn');
-        btn.disabled = true;
-        btn.textContent = 'Reloading...';
-        
-        const response = await fetch('/api/reload-questions', {
-            method: 'POST'
-        });
-        const result = await response.json();
-        
-        alert(`Loaded ${result.count} questions from exam papers.`);
-        
-        // Reload years, learning objectives, and multiple choice count
-        loadAvailableYears();
-        loadLearningObjectives();
-        loadMultipleChoiceCount();
-    } catch (error) {
-        console.error('Error reloading questions:', error);
-        alert('Failed to reload questions. Please check that exam papers are in the exam_papers/ directory.');
-    } finally {
-        const btn = document.getElementById('reloadBtn');
-        btn.disabled = false;
-        btn.textContent = 'Reload Questions from PDFs';
     }
 }
 
