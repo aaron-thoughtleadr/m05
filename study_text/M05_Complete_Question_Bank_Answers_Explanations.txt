@@ -1078,7 +1078,7 @@ C. by performance of the task specified in the agreement.
 D. on bankruptcy of the agent.
 E. on death of the principal.
 
-Answer: A, C, E (Note: some exam versions may include B)
+Answer: A, B, C, E
 Explanation: An agency relationship terminates automatically in several situations: (1) lapse of time (if for a fixed period), (2) completion of the specific task, (3) death of either party (though some exceptions exist), (4) bankruptcy of the agent (affects their capacity to act), and (5) frustration of the agency. Mutual agreement terminates agency but requires positive action by both parties, so may not be classified as 'automatic' in the strictest sense.
 
 --------------------------------------------------------------------------------
