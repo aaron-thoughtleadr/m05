@@ -288,7 +288,9 @@ class QuestionParser:
                 text = QuestionParser.extract_text_from_pdf(file_path)
             elif file_path.suffix.lower() == '.docx':
                 text = QuestionParser.extract_text_from_docx(file_path)
-            elif file_path.suffix.lower() == '.txt':
+            elif file_path.suffix.lower() in ['.txt', '.rtf']:
+                # RTF files are text-based and can be read as text
+                # They may contain RTF formatting codes, but the parser will handle them
                 text = file_path.read_text(encoding='utf-8')
             else:
                 continue
