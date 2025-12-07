@@ -317,6 +317,11 @@ async function submitAnswer() {
         const feedback = await response.json();
         
         // Store answer
+        // Check if this question was already answered
+        const wasAlreadyAnswered = answers[currentQuestionIndex] && answers[currentQuestionIndex].answered;
+        const wasCorrect = wasAlreadyAnswered ? answers[currentQuestionIndex].correct : false;
+        
+        // Update answer
         answers[currentQuestionIndex] = {
             answered: true,
             selected: selectedAnswer,
@@ -324,8 +329,21 @@ async function submitAnswer() {
             feedback: feedback
         };
         
-        if (feedback.is_correct) {
-            score++;
+        // Update score: if it was correct before and now incorrect, decrement
+        // If it was incorrect before and now correct, increment
+        // If it's a new answer, just increment if correct
+        if (wasAlreadyAnswered) {
+            if (wasCorrect && !feedback.is_correct) {
+                score--; // Was correct, now incorrect
+            } else if (!wasCorrect && feedback.is_correct) {
+                score++; // Was incorrect, now correct
+            }
+            // If both correct or both incorrect, no change
+        } else {
+            // New answer
+            if (feedback.is_correct) {
+                score++;
+            }
         }
         
         displayFeedback(feedback, question);
@@ -497,6 +515,18 @@ function restoreProgress() {
 }
 
 function finishQuiz() {
+    // RECALCULATE score from answers array to ensure accuracy
+    // This prevents issues with score being incorrect due to answer changes or restoration
+    let calculatedScore = 0;
+    answers.forEach(answer => {
+        if (answer && answer.correct === true) {
+            calculatedScore++;
+        }
+    });
+    
+    // Use the recalculated score
+    score = calculatedScore;
+    
     // Calculate learning objective breakdown
     const loBreakdown = {};
     questions.forEach((q, index) => {
