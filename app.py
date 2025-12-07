@@ -73,8 +73,8 @@ class QuestionParser:
         
         for block in question_blocks:
             # Match question number and content - must start at beginning of block
-            # Stop at the next question number (more specific pattern to prevent over-matching)
-            match = re.match(r'^(\d+)[\.\)]\s*(.+?)(?=\n\d+[\.\)]\s|$)', block.strip(), re.DOTALL)
+            # Stop at the next question number OR answer key section
+            match = re.match(r'^(\d+)[\.\)]\s*(.+?)(?=\n\d+[\.\)]\s|\n\s*ANSWERS?|$)', block.strip(), re.DOTALL | re.IGNORECASE)
             if not match:
                 continue
                 
@@ -86,13 +86,22 @@ class QuestionParser:
             if not re.search(r'\n[A-E][\.\)]\s', question_content, re.IGNORECASE):
                 continue
             
-            # IMPORTANT: Stop extracting content when we hit the next question number
-            # This prevents one question from capturing the next question's options
-            # Find where the next question starts and truncate if found
+            # IMPORTANT: Stop extracting content when we hit:
+            # 1. The next question number
+            # 2. The answer key section (ANSWERS, Answer Key, etc.)
             next_question_match = re.search(r'\n(\d+)[\.\)]\s', question_content)
-            if next_question_match:
+            answer_key_match = re.search(r'\n\s*(ANSWERS?|Answer\s+Key|Specimen\s+Examination\s+Answers)', question_content, re.IGNORECASE)
+            
+            if next_question_match and answer_key_match:
+                # Stop at whichever comes first
+                stop_pos = min(next_question_match.start(), answer_key_match.start())
+                question_content = question_content[:stop_pos].strip()
+            elif next_question_match:
                 # Truncate at the next question
                 question_content = question_content[:next_question_match.start()].strip()
+            elif answer_key_match:
+                # Truncate at the answer key
+                question_content = question_content[:answer_key_match.start()].strip()
             
             # Extract options - look for lines starting with A., B., C., D., E.
             # CRITICAL: Stop if we encounter a new question number (prevents merging questions)
