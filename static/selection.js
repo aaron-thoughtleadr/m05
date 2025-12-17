@@ -301,7 +301,7 @@ async function loadCurveBallCount() {
         document.querySelectorAll('.quiz-btn[data-mode="curveball"]').forEach(btn => {
             const value = btn.dataset.value;
             if (value === 'all') {
-                btn.textContent = `All Curve Ball Questions`;
+                btn.textContent = `Curve Ball Questions`;
                 if (count === 0) {
                     btn.disabled = true;
                     btn.title = 'No curve ball questions available';
