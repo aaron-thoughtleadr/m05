@@ -269,7 +269,7 @@ async function loadMultipleChoiceCount() {
         document.querySelectorAll('.quiz-btn[data-mode="multiple"]').forEach(btn => {
             const value = btn.dataset.value;
             if (value === 'all') {
-                btn.textContent = `All Multiple Selection Questions (${count} available)`;
+                btn.textContent = `All Multiple Selection Questions`;
             } else {
                 const maxCount = Math.min(parseInt(value), count);
                 btn.textContent = `${maxCount} Multiple Selection Questions`;
@@ -301,7 +301,7 @@ async function loadCurveBallCount() {
         document.querySelectorAll('.quiz-btn[data-mode="curveball"]').forEach(btn => {
             const value = btn.dataset.value;
             if (value === 'all') {
-                btn.textContent = `All Curve Ball Questions (${count} available)`;
+                btn.textContent = `All Curve Ball Questions`;
                 if (count === 0) {
                     btn.disabled = true;
                     btn.title = 'No curve ball questions available';
