@@ -443,15 +443,19 @@ class QuestionParser:
         # Load questions from curve ball files in study_text directory
         if STUDY_TEXT_DIR.exists():
             global_explanations = QuestionExplanations()
+            curveball_files_found = []
             for file_path in STUDY_TEXT_DIR.iterdir():
                 # Look for curveball files
                 filename_lower = file_path.name.lower()
                 if 'curveball' in filename_lower or 'curve_ball' in filename_lower:
+                    curveball_files_found.append(file_path.name)
                     if file_path.suffix.lower() == '.txt':
                         try:
+                            print(f"Loading curveball file: {file_path.name}")
                             text = file_path.read_text(encoding='utf-8')
                             # Parse questions from explanations format
                             questions = QuestionParser.parse_questions_from_explanations_format(text)
+                            print(f"Parsed {len(questions)} questions from {file_path.name}")
                             
                             for question in questions:
                                 q_text = question['question'].strip()
@@ -477,8 +481,16 @@ class QuestionParser:
                                 global_id_counter += 1
                             
                             all_questions.extend(questions)
+                            print(f"Added {len(questions)} curveball questions. Total questions now: {len(all_questions)}")
                         except Exception as e:
                             print(f"Error loading curveball questions from {file_path}: {e}")
+                            import traceback
+                            traceback.print_exc()
+            
+            if not curveball_files_found:
+                print(f"WARNING: No curveball files found in {STUDY_TEXT_DIR}. Files in directory: {[f.name for f in STUDY_TEXT_DIR.iterdir()]}")
+            else:
+                print(f"Found curveball files: {curveball_files_found}")
         
         return all_questions
 
@@ -1358,9 +1370,16 @@ def get_multiple_choice_count():
 @login_required
 def get_curve_ball_count():
     """Get count of curve ball questions available"""
-    questions = load_questions()
-    curve_ball_count = sum(1 for q in questions if q.get('is_curve_ball', False))
-    return jsonify({'count': curve_ball_count})
+    try:
+        questions = load_questions()
+        curve_ball_count = sum(1 for q in questions if q.get('is_curve_ball', False))
+        print(f"Curve ball count API called: {curve_ball_count} questions found out of {len(questions)} total")
+        return jsonify({'count': curve_ball_count})
+    except Exception as e:
+        print(f"Error in get_curve_ball_count: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'count': 0, 'error': str(e)}), 500
 
 @app.route('/api/results', methods=['POST'])
 @login_required
