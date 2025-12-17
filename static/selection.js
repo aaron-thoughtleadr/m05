@@ -287,10 +287,18 @@ async function loadMultipleChoiceCount() {
 async function loadCurveBallCount() {
     console.log('loadCurveBallCount() called');
     try {
-        const response = await fetch('/api/curve-ball-count');
+        const response = await fetch('/api/curve-ball-count', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         console.log('Curve ball count response:', response.status, response.statusText);
         if (!response.ok) {
             console.error('Failed to load curve ball count:', response.status, response.statusText);
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
             return;
         }
         const data = await response.json();
