@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadAvailableYears();
     loadLearningObjectives();
     loadMultipleChoiceCount();
+    loadCurveBallCount();
     
     // Handle count buttons
     document.querySelectorAll('.quiz-btn[data-mode="count"]').forEach(btn => {
@@ -36,6 +37,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 selectQuizMode({ multiple_choice_only: true }, btn);
             } else {
                 selectQuizMode({ multiple_choice_only: true, count: parseInt(value) }, btn);
+            }
+        });
+    });
+    
+    // Handle curve ball buttons
+    document.querySelectorAll('.quiz-btn[data-mode="curveball"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const value = btn.dataset.value;
+            if (value === 'all') {
+                selectQuizMode({ curve_ball_only: true }, btn);
+            } else {
+                selectQuizMode({ curve_ball_only: true, count: parseInt(value) }, btn);
             }
         });
     });
@@ -165,6 +178,32 @@ function showConfirmation(options) {
                 <div class="selected-note">You will practice all available multiple selection questions (questions where you can select more than one answer).</div>
             `;
         }
+    } else if (options.curve_ball_only) {
+        if (options.count) {
+            infoText = `
+                <div class="selected-detail">
+                    <span class="selected-label">Mode:</span>
+                    <span class="selected-value">Curve Ball Questions</span>
+                </div>
+                <div class="selected-detail">
+                    <span class="selected-label">Number of Questions:</span>
+                    <span class="selected-value">${options.count}</span>
+                </div>
+                <div class="selected-note">You will practice ${options.count} curve ball questions (advanced contribution calculation questions).</div>
+            `;
+        } else {
+            infoText = `
+                <div class="selected-detail">
+                    <span class="selected-label">Mode:</span>
+                    <span class="selected-value">Curve Ball Questions</span>
+                </div>
+                <div class="selected-detail">
+                    <span class="selected-label">Number of Questions:</span>
+                    <span class="selected-value">All Available</span>
+                </div>
+                <div class="selected-note">You will practice all available curve ball questions (advanced contribution calculation questions).</div>
+            `;
+        }
     }
     
     selectedInfo.innerHTML = infoText;
@@ -241,6 +280,31 @@ async function loadMultipleChoiceCount() {
         });
     } catch (error) {
         console.error('Error loading multiple choice count:', error);
+    }
+}
+
+async function loadCurveBallCount() {
+    try {
+        const response = await fetch('/api/curve-ball-count');
+        const data = await response.json();
+        const count = data.count;
+        
+        // Update button labels to show count
+        document.querySelectorAll('.quiz-btn[data-mode="curveball"]').forEach(btn => {
+            const value = btn.dataset.value;
+            if (value === 'all') {
+                btn.textContent = `All Curve Ball Questions (${count} available)`;
+            } else {
+                const maxCount = Math.min(parseInt(value), count);
+                btn.textContent = `${maxCount} Curve Ball Questions`;
+                if (maxCount < parseInt(value)) {
+                    btn.disabled = true;
+                    btn.title = `Only ${count} curve ball questions available`;
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading curve ball count:', error);
     }
 }
 

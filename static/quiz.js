@@ -579,6 +579,14 @@ function finishQuiz() {
 
 function getModeDescription() {
     const options = JSON.parse(sessionStorage.getItem('quizOptions') || '{}');
+    if (options.curve_ball_only) {
+        if (options.count) return `${options.count} Curve Ball Questions`;
+        return 'All Curve Ball Questions';
+    }
+    if (options.multiple_choice_only) {
+        if (options.count) return `${options.count} Multiple Selection Questions`;
+        return 'All Multiple Selection Questions';
+    }
     if (options.count) return `${options.count} Random Questions`;
     if (options.year) return `${options.year} Past Paper`;
     if (options.learning_objective) return `Learning Objective ${options.learning_objective}`;

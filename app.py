@@ -283,70 +283,198 @@ class QuestionParser:
         return answer_key, learning_objectives
     
     @staticmethod
+    def parse_questions_from_explanations_format(text):
+        """Parse questions from explanations file format (Question X format)"""
+        questions = []
+        
+        # Split by question markers - look for "Question X" or separator lines
+        sections = re.split(r'\n-{3,}|\n={3,}|(?=\nQuestion\s+\d+)', text, flags=re.MULTILINE)
+        
+        for section in sections:
+            if not section.strip():
+                continue
+            
+            # Match "Question X [Learning Outcome X.X]" format and extract learning objective
+            question_header_match = re.search(r'Question\s+(\d+)\s*(?:\[Learning\s+Outcome\s+(\d+\.\d+)\])?\s*\n(.+?)(?=\nAnswer:|\n\s*Question\s+\d+|\n-{3,}|\n={3,}|$)', section, re.DOTALL | re.IGNORECASE)
+            if not question_header_match:
+                continue
+            
+            question_num = question_header_match.group(1)
+            learning_obj_full = question_header_match.group(2)  # e.g., "9.5"
+            question_content = question_header_match.group(3).strip()
+            
+            # Skip if no options found
+            if not re.search(r'\n[A-E][\.\)]\s', question_content, re.IGNORECASE):
+                continue
+            
+            # Extract question text (everything before first option)
+            clean_question = question_content
+            first_option_match = re.search(r'\n([A-E])[\.\)]\s', question_content, re.IGNORECASE)
+            if first_option_match:
+                clean_question = question_content[:first_option_match.start()].strip()
+            
+            # Extract options
+            options = []
+            lines = question_content.split('\n')
+            current_option = None
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Check if this line starts a new option
+                option_match = re.match(r'^([A-E])[\.\)]\s*(.+)$', line, re.IGNORECASE)
+                if option_match:
+                    if current_option and current_option['text']:
+                        options.append(current_option)
+                    option_letter = option_match.group(1).upper()
+                    option_text = option_match.group(2).strip()
+                    current_option = {
+                        'letter': option_letter,
+                        'text': option_text
+                    }
+                elif current_option:
+                    # Continue current option (multi-line option text)
+                    if not re.match(r'^\d+[\.\)]', line) and not re.match(r'^[A-E][\.\)]', line):
+                        current_option['text'] += ' ' + line
+            
+            # Don't forget the last option
+            if current_option and current_option['text']:
+                options.append(current_option)
+            
+            # Clean up option text
+            for opt in options:
+                opt['text'] = re.sub(r'\s+', ' ', opt['text']).strip()
+            
+            # Extract answer from the section
+            answer_match = re.search(r'Answer:\s*([A-E](?:,\s*[A-E])*)', section, re.IGNORECASE)
+            correct_answer = answer_match.group(1).strip().upper() if answer_match else None
+            
+            # Only add if we have a valid question with at least 2 options
+            if clean_question and len(options) >= 2 and len(clean_question) > 10:
+                question_data = {
+                    'id': None,  # Will be assigned in load_questions_from_files
+                    'question': clean_question,
+                    'options': options,
+                    'correct_answer': correct_answer or options[0]['letter'],
+                    'is_multiple_choice': ',' in (correct_answer or '') if correct_answer else False,
+                    'explanation': '',
+                    'source_file': 'curveball_questions',
+                    'question_number': question_num
+                }
+                
+                # Add learning objective if found
+                if learning_obj_full:
+                    question_data['learning_objective'] = learning_obj_full.split('.')[0]  # Main number only
+                
+                questions.append(question_data)
+        
+        return questions
+    
+    @staticmethod
     def load_questions_from_files():
-        """Load and parse questions from all exam papers"""
+        """Load and parse questions from all exam papers and curve ball files"""
         all_questions = []
         global_id_counter = 1  # Global counter to ensure unique IDs across all papers
         
-        if not EXAM_PAPERS_DIR.exists():
-            EXAM_PAPERS_DIR.mkdir()
-            return all_questions
+        # Load questions from exam papers
+        if EXAM_PAPERS_DIR.exists():
+            for file_path in sorted(EXAM_PAPERS_DIR.iterdir()):  # Sort for consistent ordering
+                if file_path.suffix.lower() == '.pdf':
+                    text = QuestionParser.extract_text_from_pdf(file_path)
+                elif file_path.suffix.lower() == '.docx':
+                    text = QuestionParser.extract_text_from_docx(file_path)
+                elif file_path.suffix.lower() in ['.txt', '.rtf']:
+                    # RTF files are text-based and can be read as text
+                    # They may contain RTF formatting codes, but the parser will handle them
+                    text = file_path.read_text(encoding='utf-8')
+                else:
+                    continue
+                
+                # Extract answer key and learning objectives
+                answer_key, learning_objectives = QuestionParser.extract_answer_key(text)
+                
+                # Parse questions
+                questions = QuestionParser.parse_questions(text)
+                
+                # Match answers to questions and preserve order
+                # Use explanations file as source of truth (highest priority), then PDF answer key
+                global_explanations = QuestionExplanations()
+                
+                for question in questions:
+                    q_num = question.get('question_number', '')
+                    q_text = question['question'].strip()
+                    
+                    # Highest priority: answer from explanations file (user's source of truth)
+                    # Use fuzzy matching to handle slight text differences
+                    exp_answer = global_explanations.get_answer(q_text)
+                    if exp_answer:
+                        question['correct_answer'] = exp_answer
+                        # Check if it's multiple choice based on comma in answer
+                        question['is_multiple_choice'] = ',' in exp_answer
+                    # Second priority: answer from answer key in PDF
+                    elif q_num in answer_key:
+                        question['correct_answer'] = answer_key[q_num].upper()
+                        # Check if it's multiple choice based on comma in answer
+                        question['is_multiple_choice'] = ',' in answer_key[q_num]
+                    
+                    # Check if this is a curve ball question from explanations file
+                    is_curve_ball = global_explanations.get_curve_ball(q_text)
+                    question['is_curve_ball'] = is_curve_ball
+                    
+                    # Ensure we have a valid answer (fallback to first option if nothing found)
+                    if not question.get('correct_answer') or question['correct_answer'] == question['options'][0]['letter']:
+                        # Only use first option as fallback if we truly have no answer
+                        # This will be flagged for manual review
+                        pass
+                    
+                    if q_num in learning_objectives:
+                        question['learning_objective'] = learning_objectives[q_num]
+                    question['source_file'] = file_path.name
+                    # Store original question number for sorting
+                    question['original_order'] = int(q_num) if q_num.isdigit() else 999999
+                    # Assign unique global ID
+                    question['id'] = global_id_counter
+                    global_id_counter += 1
+                
+                all_questions.extend(questions)
         
-        for file_path in sorted(EXAM_PAPERS_DIR.iterdir()):  # Sort for consistent ordering
-            if file_path.suffix.lower() == '.pdf':
-                text = QuestionParser.extract_text_from_pdf(file_path)
-            elif file_path.suffix.lower() == '.docx':
-                text = QuestionParser.extract_text_from_docx(file_path)
-            elif file_path.suffix.lower() in ['.txt', '.rtf']:
-                # RTF files are text-based and can be read as text
-                # They may contain RTF formatting codes, but the parser will handle them
-                text = file_path.read_text(encoding='utf-8')
-            else:
-                continue
-            
-            # Extract answer key and learning objectives
-            answer_key, learning_objectives = QuestionParser.extract_answer_key(text)
-            
-            # Parse questions
-            questions = QuestionParser.parse_questions(text)
-            
-            # Match answers to questions and preserve order
-            # Use explanations file as source of truth (highest priority), then PDF answer key
+        # Load questions from curve ball files in study_text directory
+        if STUDY_TEXT_DIR.exists():
             global_explanations = QuestionExplanations()
-            
-            for question in questions:
-                q_num = question.get('question_number', '')
-                q_text = question['question'].strip()
-                
-                # Highest priority: answer from explanations file (user's source of truth)
-                # Use fuzzy matching to handle slight text differences
-                exp_answer = global_explanations.get_answer(q_text)
-                if exp_answer:
-                    question['correct_answer'] = exp_answer
-                    # Check if it's multiple choice based on comma in answer
-                    question['is_multiple_choice'] = ',' in exp_answer
-                # Second priority: answer from answer key in PDF
-                elif q_num in answer_key:
-                    question['correct_answer'] = answer_key[q_num].upper()
-                    # Check if it's multiple choice based on comma in answer
-                    question['is_multiple_choice'] = ',' in answer_key[q_num]
-                
-                # Ensure we have a valid answer (fallback to first option if nothing found)
-                if not question.get('correct_answer') or question['correct_answer'] == question['options'][0]['letter']:
-                    # Only use first option as fallback if we truly have no answer
-                    # This will be flagged for manual review
-                    pass
-                
-                if q_num in learning_objectives:
-                    question['learning_objective'] = learning_objectives[q_num]
-                question['source_file'] = file_path.name
-                # Store original question number for sorting
-                question['original_order'] = int(q_num) if q_num.isdigit() else 999999
-                # Assign unique global ID
-                question['id'] = global_id_counter
-                global_id_counter += 1
-            
-            all_questions.extend(questions)
+            for file_path in STUDY_TEXT_DIR.iterdir():
+                # Look for curveball files
+                filename_lower = file_path.name.lower()
+                if 'curveball' in filename_lower or 'curve_ball' in filename_lower:
+                    if file_path.suffix.lower() == '.txt':
+                        try:
+                            text = file_path.read_text(encoding='utf-8')
+                            # Parse questions from explanations format
+                            questions = QuestionParser.parse_questions_from_explanations_format(text)
+                            
+                            for question in questions:
+                                q_text = question['question'].strip()
+                                
+                                # Get answer and curve ball flag from explanations
+                                exp_answer = global_explanations.get_answer(q_text)
+                                if exp_answer:
+                                    question['correct_answer'] = exp_answer
+                                    question['is_multiple_choice'] = ',' in exp_answer
+                                
+                                # Mark as curve ball (always true for curveball files)
+                                question['is_curve_ball'] = True
+                                
+                                # Learning objective already extracted in parse_questions_from_explanations_format
+                                
+                                question['source_file'] = file_path.name
+                                question['original_order'] = int(question.get('question_number', '0')) if question.get('question_number', '0').isdigit() else 999999
+                                question['id'] = global_id_counter
+                                global_id_counter += 1
+                            
+                            all_questions.extend(questions)
+                        except Exception as e:
+                            print(f"Error loading curveball questions from {file_path}: {e}")
         
         return all_questions
 
@@ -453,15 +581,20 @@ class QuestionExplanations:
             answer = answer_match.group(1).strip() if answer_match else ""
             
             # Extract explanation
-            explanation_match = re.search(r'Explanation:\s*(.+?)(?=\n\s*(?:Question|Q\d*:|--|==|$|\Z))', section, re.DOTALL | re.IGNORECASE)
+            explanation_match = re.search(r'Explanation:\s*(.+?)(?=\n\s*(?:Question|Q\d*:|--|==|Curve\s+Ball:|$|\Z))', section, re.DOTALL | re.IGNORECASE)
             explanation = explanation_match.group(1).strip() if explanation_match else ""
+            
+            # Extract curve ball flag
+            curve_ball_match = re.search(r'Curve\s+Ball:\s*(Yes|True|1)', section, re.IGNORECASE)
+            is_curve_ball = bool(curve_ball_match)
             
             if question_text and explanation:
                 # Store by normalized question text
                 normalized_q = self.normalize_text(question_text)
                 self.explanations[normalized_q] = {
                     'explanation': explanation,
-                    'answer': answer
+                    'answer': answer,
+                    'is_curve_ball': is_curve_ball
                 }
     
     def get_explanation(self, question_text):
@@ -538,6 +671,35 @@ class QuestionExplanations:
                         best_match = data.get('answer', '').strip().upper()
         
         return best_match
+    
+    def get_curve_ball(self, question_text):
+        """Get curve ball flag from explanations file for a question if available"""
+        normalized_q = self.normalize_text(question_text)
+        
+        # Try exact match first
+        if normalized_q in self.explanations:
+            return self.explanations[normalized_q].get('is_curve_ball', False)
+        
+        # Try fuzzy matching (same logic as get_answer)
+        key_words = normalized_q.split()[:20]
+        key_phrase = ' '.join(key_words)
+        
+        best_match = None
+        best_score = 0
+        
+        for stored_q, data in self.explanations.items():
+            if key_phrase in stored_q or stored_q in normalized_q:
+                stored_words = set(stored_q.split())
+                question_words = set(normalized_q.split())
+                overlap = len(stored_words & question_words)
+                similarity = overlap / max(len(stored_words), len(question_words), 1)
+                
+                if similarity >= 0.6 or overlap >= 8:
+                    if similarity > best_score:
+                        best_score = similarity
+                        best_match = data.get('is_curve_ball', False)
+        
+        return best_match if best_match is not None else False
 
 class StudyTextIndex:
     """Index study text for concept lookup"""
@@ -1086,17 +1248,27 @@ def get_questions():
 @app.route('/api/questions/filter', methods=['POST'])
 @login_required
 def get_filtered_questions():
-    """Get filtered questions by count, year, or learning objective"""
+    """Get filtered questions by count, year, learning objective, curve ball, or multiple choice"""
     data = request.json
     count = data.get('count')
     year = data.get('year')
     learning_objective = data.get('learning_objective')
     multiple_choice_only = data.get('multiple_choice_only', False)
+    curve_ball_only = data.get('curve_ball_only', False)
     
     all_questions = load_questions()
     
+    # Filter by curve ball only if specified
+    if curve_ball_only:
+        filtered = [q for q in all_questions if q.get('is_curve_ball', False)]
+        # Shuffle for variety
+        import random
+        random.shuffle(filtered)
+        # Limit by count if specified
+        if count:
+            filtered = filtered[:int(count)]
     # Filter by multiple choice only if specified
-    if multiple_choice_only:
+    elif multiple_choice_only:
         filtered = [q for q in all_questions if q.get('is_multiple_choice', False)]
         # Shuffle for variety
         import random
@@ -1177,6 +1349,14 @@ def get_multiple_choice_count():
     questions = load_questions()
     multiple_choice_count = sum(1 for q in questions if q.get('is_multiple_choice', False))
     return jsonify({'count': multiple_choice_count})
+
+@app.route('/api/curve-ball-count')
+@login_required
+def get_curve_ball_count():
+    """Get count of curve ball questions available"""
+    questions = load_questions()
+    curve_ball_count = sum(1 for q in questions if q.get('is_curve_ball', False))
+    return jsonify({'count': curve_ball_count})
 
 @app.route('/api/results', methods=['POST'])
 @login_required
