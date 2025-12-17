@@ -286,25 +286,41 @@ async function loadMultipleChoiceCount() {
 async function loadCurveBallCount() {
     try {
         const response = await fetch('/api/curve-ball-count');
+        if (!response.ok) {
+            console.error('Failed to load curve ball count:', response.status, response.statusText);
+            return;
+        }
         const data = await response.json();
-        const count = data.count;
+        const count = data.count || 0;
         
         // Update button labels to show count
         document.querySelectorAll('.quiz-btn[data-mode="curveball"]').forEach(btn => {
             const value = btn.dataset.value;
             if (value === 'all') {
                 btn.textContent = `All Curve Ball Questions (${count} available)`;
+                if (count === 0) {
+                    btn.disabled = true;
+                    btn.title = 'No curve ball questions available';
+                }
             } else {
                 const maxCount = Math.min(parseInt(value), count);
                 btn.textContent = `${maxCount} Curve Ball Questions`;
-                if (maxCount < parseInt(value)) {
+                if (maxCount < parseInt(value) || count === 0) {
                     btn.disabled = true;
-                    btn.title = `Only ${count} curve ball questions available`;
+                    btn.title = count === 0 ? 'No curve ball questions available' : `Only ${count} curve ball questions available`;
+                } else {
+                    btn.disabled = false;
+                    btn.title = '';
                 }
             }
         });
     } catch (error) {
         console.error('Error loading curve ball count:', error);
+        // Disable buttons if we can't load the count
+        document.querySelectorAll('.quiz-btn[data-mode="curveball"]').forEach(btn => {
+            btn.disabled = true;
+            btn.title = 'Unable to load curve ball questions';
+        });
     }
 }
 
