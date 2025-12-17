@@ -1,7 +1,8 @@
-// Selection page logic
+// Selection page logic - v2 (with curve ball support)
 let selectedOptions = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('Selection page loaded - checking for curve ball questions...');
     // Check if user is authenticated
     try {
         const authResponse = await fetch('/api/check-auth');
@@ -284,13 +285,16 @@ async function loadMultipleChoiceCount() {
 }
 
 async function loadCurveBallCount() {
+    console.log('loadCurveBallCount() called');
     try {
         const response = await fetch('/api/curve-ball-count');
+        console.log('Curve ball count response:', response.status, response.statusText);
         if (!response.ok) {
             console.error('Failed to load curve ball count:', response.status, response.statusText);
             return;
         }
         const data = await response.json();
+        console.log('Curve ball count data:', data);
         const count = data.count || 0;
         
         // Update button labels to show count
