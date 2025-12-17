@@ -456,11 +456,15 @@ class QuestionParser:
                             for question in questions:
                                 q_text = question['question'].strip()
                                 
-                                # Get answer and curve ball flag from explanations
+                                # Answer is already extracted in parse_questions_from_explanations_format
+                                # But try to get from explanations as backup (for consistency)
                                 exp_answer = global_explanations.get_answer(q_text)
-                                if exp_answer:
+                                if exp_answer and not question.get('correct_answer'):
                                     question['correct_answer'] = exp_answer
                                     question['is_multiple_choice'] = ',' in exp_answer
+                                elif question.get('correct_answer'):
+                                    # Use the answer that was already parsed
+                                    question['is_multiple_choice'] = ',' in question['correct_answer']
                                 
                                 # Mark as curve ball (always true for curveball files)
                                 question['is_curve_ball'] = True
